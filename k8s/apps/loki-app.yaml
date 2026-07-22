@@ -14,6 +14,8 @@ spec:
         deploymentMode: Monolithic
         loki:
           auth_enabled: false # lab mono-tenant : évite d'avoir à passer X-Scope-OrgID partout
+          commonConfig:
+            replication_factor: 1 # une seule replica (singleBinary) : le défaut (3) laisse le ring toujours "unhealthy"
           storage:
             type: filesystem
           schemaConfig:
