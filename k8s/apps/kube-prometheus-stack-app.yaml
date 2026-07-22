@@ -39,6 +39,15 @@ spec:
               type: loki
               url: http://loki.monitoring.svc.cluster.local:3100
               access: proxy
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            hosts:
+              - grafana.192.168.80.169.nip.io
+            tls:
+              - secretName: grafana-tls
+                hosts:
+                  - grafana.192.168.80.169.nip.io
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
