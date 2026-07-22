@@ -1,0 +1,27 @@
+---
+# Binaire téléchargé directement (pas de repo apt) : indépendant du codename Ubuntu.
+- name: Définir la version de kubectl
+  ansible.builtin.set_fact:
+    kubectl_version: "v1.36.2"
+
+- name: Vérifier si kubectl est déjà installé à la bonne version
+  ansible.builtin.command: kubectl version --client -o json
+  register: kubectl_check
+  changed_when: false
+  failed_when: false
+
+- name: Télécharger le binaire kubectl
+  ansible.builtin.get_url:
+    url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+    dest: /tmp/kubectl
+    mode: "0755"
+  when: kubectl_check.rc != 0 or (kubectl_version | regex_replace('^v', '')) not in kubectl_check.stdout
+
+- name: Installer kubectl dans /usr/local/bin
+  ansible.builtin.copy:
+    src: /tmp/kubectl
+    dest: /usr/local/bin/kubectl
+    mode: "0755"
+    remote_src: true
+  become: true
+  when: kubectl_check.rc != 0 or (kubectl_version | regex_replace('^v', '')) not in kubectl_check.stdout

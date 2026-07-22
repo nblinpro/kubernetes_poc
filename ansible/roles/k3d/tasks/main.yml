@@ -1,0 +1,26 @@
+---
+# Script officiel k3d : télécharge un binaire depuis GitHub releases, aucune dépendance
+# à un repo apt / codename Ubuntu. Nécessite Docker (rôle précédent).
+- name: Définir la version de k3d
+  ansible.builtin.set_fact:
+    k3d_version: "v5.9.0"
+
+- name: Vérifier si k3d est déjà installé à la bonne version
+  ansible.builtin.command: k3d version
+  register: k3d_check
+  changed_when: false
+  failed_when: false
+
+- name: Télécharger le script d'installation officiel k3d
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh
+    dest: /tmp/install-k3d.sh
+    mode: "0755"
+  when: k3d_check.rc != 0 or k3d_version not in k3d_check.stdout
+
+- name: Installer k3d
+  ansible.builtin.command: /tmp/install-k3d.sh
+  become: true
+  environment:
+    TAG: "{{ k3d_version }}"
+  when: k3d_check.rc != 0 or k3d_version not in k3d_check.stdout

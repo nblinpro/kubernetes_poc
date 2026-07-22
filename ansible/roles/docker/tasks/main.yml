@@ -1,0 +1,43 @@
+---
+# Docker Engine via le script officiel get.docker.com : plus robuste qu'un repo apt
+# codename-specific sur une release Ubuntu très récente (le script gère lui-même les
+# fallbacks de codename). Idempotent grâce au `creates:` ci-dessous.
+- name: Vérifier si Docker est déjà installé
+  ansible.builtin.stat:
+    path: /usr/bin/docker
+  register: docker_binary
+
+- name: Télécharger le script d'installation officiel Docker
+  ansible.builtin.get_url:
+    url: https://get.docker.com
+    dest: /tmp/get-docker.sh
+    mode: "0755"
+  when: not docker_binary.stat.exists
+
+- name: Installer Docker Engine
+  ansible.builtin.command: sh /tmp/get-docker.sh
+  become: true
+  when: not docker_binary.stat.exists
+
+- name: S'assurer que le service Docker est démarré et activé
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+  become: true
+
+- name: Ajouter l'utilisateur cible au groupe docker
+  ansible.builtin.user:
+    name: "{{ target_user }}"
+    groups: docker
+    append: true
+  become: true
+  register: docker_group_change
+
+- name: Avertir si une nouvelle session est nécessaire
+  ansible.builtin.debug:
+    msg: >-
+      L'utilisateur {{ target_user }} vient d'être ajouté au groupe docker.
+      Déconnecte-toi/reconnecte-toi (ou lance `newgrp docker`) avant d'utiliser
+      Terraform, sinon les commandes docker/k3d échoueront avec un problème de permission.
+  when: docker_group_change.changed

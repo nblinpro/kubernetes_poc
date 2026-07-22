@@ -1,0 +1,6 @@
+---
+# Utilisateur à ajouter au groupe docker. Par défaut, l'utilisateur qui invoque
+# ansible-playbook. Si le playbook est lui-même lancé via `sudo ansible-playbook ...`
+# (contournement du blocage PAM/TTY sur become), ansible_user_id vaudrait "root" :
+# surcharger explicitement avec -e "target_user=$USER" dans ce cas.
+target_user: "{{ ansible_user_id }}"

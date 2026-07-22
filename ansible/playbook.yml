@@ -1,0 +1,11 @@
+---
+- name: Bootstrap host for the Kubernetes PoC (Docker, kubectl, helm, k3d, terraform, kubeseal)
+  hosts: local
+  become: false
+  roles:
+    - docker
+    - kubectl
+    - helm
+    - k3d
+    - terraform
+    - kubeseal

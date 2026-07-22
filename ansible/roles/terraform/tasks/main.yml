@@ -1,0 +1,36 @@
+---
+# Binaire téléchargé directement depuis releases.hashicorp.com (zip) plutôt que le repo
+# apt HashiCorp, qui ne publie pas toujours immédiatement un suite pour les codenames
+# Ubuntu très récents.
+- name: Définir la version de Terraform
+  ansible.builtin.set_fact:
+    terraform_version: "1.15.8"
+
+- name: S'assurer qu'unzip est installé
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+    update_cache: true
+  become: true
+
+- name: Vérifier si Terraform est déjà installé à la bonne version
+  ansible.builtin.command: terraform version
+  register: terraform_check
+  changed_when: false
+  failed_when: false
+
+- name: Télécharger l'archive Terraform
+  ansible.builtin.get_url:
+    url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
+    dest: "/tmp/terraform_{{ terraform_version }}.zip"
+    mode: "0644"
+  when: terraform_check.rc != 0 or terraform_version not in terraform_check.stdout
+
+- name: Extraire et installer le binaire Terraform
+  ansible.builtin.unarchive:
+    src: "/tmp/terraform_{{ terraform_version }}.zip"
+    dest: /usr/local/bin
+    remote_src: true
+    mode: "0755"
+  become: true
+  when: terraform_check.rc != 0 or terraform_version not in terraform_check.stdout

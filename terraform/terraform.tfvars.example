@@ -1,0 +1,6 @@
+# Copier en terraform.tfvars si besoin de personnaliser (ce fichier est gitignore).
+# NE JAMAIS mettre argocd_admin_password_hash ici : il doit venir uniquement de la
+# variable d'environnement TF_VAR_argocd_admin_password_hash (voir README).
+
+cluster_name = "poc"
+agents_count = 2

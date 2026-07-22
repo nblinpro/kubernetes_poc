@@ -1,0 +1,27 @@
+---
+# Script officiel Helm : télécharge un binaire depuis GitHub releases, aucune dépendance
+# à un repo apt / codename Ubuntu. Pin sur la dernière v3.x (Helm v4 existe déjà mais
+# l'écosystème de charts/providers Terraform de ce PoC cible v3).
+- name: Définir la version de Helm
+  ansible.builtin.set_fact:
+    helm_version: "v3.21.3"
+
+- name: Vérifier si Helm est déjà installé à la bonne version
+  ansible.builtin.command: helm version --short
+  register: helm_check
+  changed_when: false
+  failed_when: false
+
+- name: Télécharger le script d'installation officiel Helm
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /tmp/get-helm-3.sh
+    mode: "0755"
+  when: helm_check.rc != 0 or helm_version not in helm_check.stdout
+
+- name: Installer Helm
+  ansible.builtin.command: /tmp/get-helm-3.sh --version {{ helm_version }}
+  become: true
+  environment:
+    DESIRED_VERSION: "{{ helm_version }}"
+  when: helm_check.rc != 0 or helm_version not in helm_check.stdout

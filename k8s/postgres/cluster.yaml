@@ -1,0 +1,13 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: todo-db
+  namespace: todo
+spec:
+  instances: 1 # pas de HA : choix assumé pour un lab
+  storage:
+    size: 1Gi
+  bootstrap:
+    initdb:
+      database: todo
+      owner: todo

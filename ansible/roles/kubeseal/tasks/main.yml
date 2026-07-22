@@ -1,0 +1,35 @@
+---
+# Binaire téléchargé directement depuis les releases GitHub (tarball contenant
+# kubeseal, LICENSE, README.md) : indépendant du codename Ubuntu.
+- name: Définir la version de kubeseal
+  ansible.builtin.set_fact:
+    kubeseal_version: "0.38.4"
+
+- name: Vérifier si kubeseal est déjà installé à la bonne version
+  ansible.builtin.command: kubeseal --version
+  register: kubeseal_check
+  changed_when: false
+  failed_when: false
+
+- name: Télécharger l'archive kubeseal
+  ansible.builtin.get_url:
+    url: "https://github.com/bitnami-labs/sealed-secrets/releases/download/v{{ kubeseal_version }}/kubeseal-{{ kubeseal_version }}-linux-amd64.tar.gz"
+    dest: "/tmp/kubeseal-{{ kubeseal_version }}.tar.gz"
+    mode: "0644"
+  when: kubeseal_check.rc != 0 or kubeseal_version not in kubeseal_check.stdout
+
+- name: Extraire l'archive kubeseal
+  ansible.builtin.unarchive:
+    src: "/tmp/kubeseal-{{ kubeseal_version }}.tar.gz"
+    dest: /tmp
+    remote_src: true
+  when: kubeseal_check.rc != 0 or kubeseal_version not in kubeseal_check.stdout
+
+- name: Installer kubeseal dans /usr/local/bin
+  ansible.builtin.copy:
+    src: /tmp/kubeseal
+    dest: /usr/local/bin/kubeseal
+    mode: "0755"
+    remote_src: true
+  become: true
+  when: kubeseal_check.rc != 0 or kubeseal_version not in kubeseal_check.stdout

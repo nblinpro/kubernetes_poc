@@ -1,0 +1,20 @@
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/terraform.tfvars
+terraform/*.tfplan
+crash.log
+crash.*.log
+
+# Kubeconfig / secrets
+terraform/kubeconfig*
+*.kubeconfig
+
+# Ansible
+ansible/*.retry
+*.retry
+
+# OS / editors
+.DS_Store
