@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: alloy
+    targetRevision: 1.11.0
+    helm:
+      valuesObject:
+        # Deployment à 1 replica plutôt que le DaemonSet par défaut : la découverte
+        # loki.source.kubernetes se fait via l'API Kubernetes (tous les pods du
+        # cluster, pas seulement ceux du nœud local) — un DaemonSet dupliquerait les
+        # logs sur chaque nœud.
+        controller:
+          type: deployment
+          replicas: 1
+        alloy:
+          configMap:
+            content: |-
+              discovery.kubernetes "pods" {
+                role = "pod"
+              }
+
+              loki.source.kubernetes "pods" {
+                targets    = discovery.kubernetes.pods.targets
+                forward_to = [loki.write.local.receiver]
+              }
+
+              loki.write "local" {
+                endpoint {
+                  url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+                }
+              }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

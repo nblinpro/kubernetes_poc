@@ -29,6 +29,9 @@ flowchart TB
             R[Deployment: redis]
             AP[Deployment: todo-api]
             FE[Deployment: frontend]
+            PR[kube-prometheus-stack]
+            LK[Loki]
+            AL[Alloy]
         end
 
         subgraph K3D["Cluster k3d (Traefik intégré via k3s)"]
@@ -43,6 +46,8 @@ flowchart TB
     FE -->|fetch, CORS ouvert| AP
     AP -->|DATABASE_URL secret CNPG| P
     AP -->|SealedSecret redis-secret| R
+    AL -->|logs des pods, API k8s| LK
+    PR -->|datasource Loki| LK
 
     Ansible --> TF
     T1 --> K3D
@@ -218,13 +223,56 @@ nécessaire) :
 (accepter l'avertissement du navigateur pour chaque certificat auto-signé, une fois par
 hostname).
 
+## Démarrage — Phase 3 : Observabilité (Prometheus + Grafana + Loki)
+
+kube-prometheus-stack (Prometheus + Grafana) et Loki + Grafana Alloy (logs), déployés
+en GitOps comme le reste — 4 nouvelles Applications ArgoCD, aucun ajout Terraform. Mot
+de passe admin Grafana généré aléatoirement et scellé via Sealed Secrets (même procédé
+que Redis/TLS en Phase 2).
+
+### 1. Committer et pousser les manifests
+
+Rien à construire ni importer cette fois (uniquement des charts Helm publics tirés
+directement par ArgoCD) :
+
+```bash
+git add k8s README.md
+git commit -m "Phase 3: observabilité (kube-prometheus-stack + Loki + Alloy) en GitOps"
+git push
+```
+
+ArgoCD synchronise automatiquement dans la minute qui suit (le premier sync peut
+prendre quelques minutes : CRDs Prometheus Operator + téléchargement des images).
+
+### 2. Vérifier
+
+```bash
+export KUBECONFIG=terraform/kubeconfig
+kubectl -n monitoring get pods
+kubectl -n argocd get applications
+```
+
+Puis accéder à Grafana :
+
+```bash
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
+```
+
+Ouvrir http://localhost:3000 — utilisateur `admin`, mot de passe généré lors de la
+mise en place (communiqué une seule fois au moment de la génération ; le récupérer à
+nouveau si besoin avec
+`kubectl -n monitoring get secret grafana-admin-credentials -o jsonpath='{.data.admin-password}' | base64 -d`).
+
+Dans Grafana : le dashboard **"To-Do API (namespace todo)"** doit apparaître
+automatiquement (provisionné via ConfigMap, pas cliqué dans l'UI) ; l'onglet
+**Explore → Loki** doit remonter les logs des pods `todo-api`/`frontend`/etc., confirmant
+que le pipeline Alloy → Loki fonctionne.
+
 ## Roadmap
 
 - **CI (GitHub Actions)** : lint (code, Dockerfiles, charts Helm), scan de sécurité des
   images avec Trivy, build/push vers GHCR, bump automatique des manifests (remplacera le
   build/import local de la Phase 2).
-- **Observabilité** : Prometheus + Grafana + Loki, mot de passe admin Grafana géré lui
-  aussi via Sealed Secrets (jamais en clair dans git), dashboards versionnés.
 - **Déploiements avancés** : Canary / Blue-Green avec Argo Rollouts.
 
 ## Structure du dépôt
@@ -235,6 +283,8 @@ hostname).
 ├── apps/
 │   ├── todo-api/       # Code source de l'API FastAPI (To-Do list)
 │   └── frontend/       # Frontend statique (HTML/CSS/JS, servi par nginx)
-├── k8s/                # Manifests GitOps : Application ArgoCD racine + apps (postgres, redis, todo-api, frontend)
+├── k8s/
+│   ├── apps/           # Applications ArgoCD (postgres, redis, todo-api, frontend, kube-prometheus-stack, loki, alloy, monitoring-config)
+│   └── monitoring/     # Secret Grafana scellé + dashboard "as code"
 └── scripts/            # Scripts d'aide (vérification en lecture seule)
 ```
