@@ -252,13 +252,9 @@ kubectl -n monitoring get pods
 kubectl -n argocd get applications
 ```
 
-Puis accéder à Grafana :
-
-```bash
-kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
-```
-
-Ouvrir http://localhost:3000 — utilisateur `admin`, mot de passe généré lors de la
+Grafana est exposé en permanence via un Ingress Traefik (même principe que les autres
+services : certificat auto-signé scellé via Sealed Secrets) :
+**`https://grafana.<IP>.nip.io`** — utilisateur `admin`, mot de passe généré lors de la
 mise en place (communiqué une seule fois au moment de la génération ; le récupérer à
 nouveau si besoin avec
 `kubectl -n monitoring get secret grafana-admin-credentials -o jsonpath='{.data.admin-password}' | base64 -d`).
