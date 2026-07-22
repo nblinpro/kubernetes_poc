@@ -28,6 +28,7 @@ flowchart TB
             P[Cluster CNPG: todo-db]
             R[Deployment: redis]
             AP[Deployment: todo-api]
+            FE[Deployment: frontend]
         end
 
         subgraph K3D["Cluster k3d (Traefik intégré via k3s)"]
@@ -38,7 +39,8 @@ flowchart TB
         end
     end
 
-    Browser["Navigateur\nhttps://argocd.<IP>.nip.io"] --> K3D
+    Browser["Navigateur\nhttps://argocd.<IP>.nip.io\nhttps://todo.<IP>.nip.io"] --> K3D
+    FE -->|fetch, CORS ouvert| AP
     AP -->|DATABASE_URL secret CNPG| P
     AP -->|SealedSecret redis-secret| R
 
@@ -143,12 +145,12 @@ cd terraform
 terraform destroy
 ```
 
-## Démarrage — Phase 2 : app de démo (To-Do API)
+## Démarrage — Phase 2 : app de démo (To-Do)
 
-App FastAPI (To-Do list) + PostgreSQL (opérateur CloudNativePG) + Redis (cache),
-déployée en GitOps via un pattern ArgoCD "App of Apps" qui lit le dossier `k8s/` de
-**ce dépôt**. Pas encore de CI/CD : l'image est construite en local et importée
-directement dans k3d.
+App FastAPI (To-Do list) + PostgreSQL (opérateur CloudNativePG) + Redis (cache) +
+frontend statique (HTML/JS servi par nginx), déployée en GitOps via un pattern ArgoCD
+"App of Apps" qui lit le dossier `k8s/` de **ce dépôt**. Pas encore de CI/CD : les
+images sont construites en local et importées directement dans k3d.
 
 ⚠️ ArgoCD synchronise depuis le dépôt git **distant** (`origin`), pas depuis ton disque
 local : après avoir écrit/modifié les manifests, il faut les committer et les pousser
@@ -165,12 +167,16 @@ terraform apply -var="argocd_host_ip=<IP LAN de la machine>"
 (reprend les mêmes variables `TF_VAR_argocd_admin_password_hash` / `argocd_host_ip` que
 la Phase 1 — à ré-exporter si le shell a changé depuis.)
 
-### 2. Construire l'image et l'importer dans k3d
+### 2. Construire les images et les importer dans k3d
 
 ```bash
 cd ../apps/todo-api
 docker build -t todo-api:dev .
 k3d image import todo-api:dev --cluster poc
+
+cd ../frontend
+docker build -t todo-frontend:dev .
+k3d image import todo-frontend:dev --cluster poc
 ```
 
 ### 3. Committer et pousser les manifests
@@ -178,7 +184,7 @@ k3d image import todo-api:dev --cluster poc
 ```bash
 cd ../..
 git add apps k8s ansible terraform README.md
-git commit -m "Phase 2: app de démo To-Do (FastAPI + CNPG + Redis) en GitOps"
+git commit -m "Phase 2: app de démo To-Do (FastAPI + CNPG + Redis + frontend) en GitOps"
 git push
 ```
 
@@ -200,12 +206,17 @@ curl localhost:8000/todos
 ```
 
 Dans l'UI ArgoCD (`https://argocd.<IP>.nip.io`), les Applications `root-app`, `postgres`,
-`redis` et `todo-api` doivent apparaître `Synced` / `Healthy`.
+`redis`, `todo-api` et `frontend` doivent apparaître `Synced` / `Healthy`.
 
-L'API est aussi exposée en permanence via un Ingress Traefik (même principe que ArgoCD :
-certificat auto-signé scellé avec Sealed Secrets, pas de `kubectl port-forward`
-nécessaire) : **`https://todo-api.<IP>.nip.io/todos`** (accepter l'avertissement du
-navigateur pour le certificat auto-signé).
+Tout est aussi exposé en permanence via des Ingress Traefik (même principe que ArgoCD :
+certificats auto-signés scellés avec Sealed Secrets, pas de `kubectl port-forward`
+nécessaire) :
+- **`https://todo.<IP>.nip.io`** — l'interface web (ajouter/cocher/supprimer des tâches)
+- `https://todo-api.<IP>.nip.io/docs` — Swagger de l'API
+- `https://argocd.<IP>.nip.io` — UI ArgoCD
+
+(accepter l'avertissement du navigateur pour chaque certificat auto-signé, une fois par
+hostname).
 
 ## Roadmap
 
@@ -221,7 +232,9 @@ navigateur pour le certificat auto-signé).
 ```
 ├── ansible/            # Bootstrap de la machine hôte (Docker, kubectl, helm, k3d, terraform, kubeseal)
 ├── terraform/          # Provisioning : cluster k3d, Sealed Secrets, ArgoCD, CloudNativePG, bootstrap App-of-Apps
-├── apps/todo-api/      # Code source de l'API FastAPI (To-Do list)
-├── k8s/                # Manifests GitOps : Application ArgoCD racine + apps (postgres, redis, todo-api)
+├── apps/
+│   ├── todo-api/       # Code source de l'API FastAPI (To-Do list)
+│   └── frontend/       # Frontend statique (HTML/CSS/JS, servi par nginx)
+├── k8s/                # Manifests GitOps : Application ArgoCD racine + apps (postgres, redis, todo-api, frontend)
 └── scripts/            # Scripts d'aide (vérification en lecture seule)
 ```

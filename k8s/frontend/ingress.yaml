@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: todo
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - todo.192.168.80.169.nip.io
+      secretName: todo-frontend-tls
+  rules:
+    - host: todo.192.168.80.169.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

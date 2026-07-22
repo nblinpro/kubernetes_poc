@@ -2,6 +2,7 @@ import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import delete, select
 
@@ -28,6 +29,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="todo-api", lifespan=lifespan)
+
+# Frontend et API sont sur des hostnames Ingress différents (lab, pas de vraie
+# authentification) : CORS ouvert plutôt que coupler le code à un hostname précis.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")

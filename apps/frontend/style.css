@@ -1,0 +1,71 @@
+:root {
+  color-scheme: light dark;
+  --accent: #4f46e5;
+  --border: #d4d4d8;
+  --done: #9ca3af;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 32rem;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+#add-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+#new-title {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  font-size: 1rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  background: var(--accent);
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+#todo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#todo-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+#todo-list li span {
+  flex: 1;
+}
+
+#todo-list li.done span {
+  text-decoration: line-through;
+  color: var(--done);
+}
+
+.delete-btn {
+  background: transparent;
+  color: var(--done);
+  font-size: 1.1rem;
+  padding: 0 0.25rem;
+}
