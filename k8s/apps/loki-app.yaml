@@ -13,6 +13,7 @@ spec:
       valuesObject:
         deploymentMode: Monolithic
         loki:
+          auth_enabled: false # lab mono-tenant : évite d'avoir à passer X-Scope-OrgID partout
           storage:
             type: filesystem
           schemaConfig:
