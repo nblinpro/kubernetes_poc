@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: todo-api
+  namespace: todo
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - todo-api.192.168.80.169.nip.io
+      secretName: todo-api-tls
+  rules:
+    - host: todo-api.192.168.80.169.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: todo-api
+                port:
+                  number: 8000

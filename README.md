@@ -202,6 +202,11 @@ curl localhost:8000/todos
 Dans l'UI ArgoCD (`https://argocd.<IP>.nip.io`), les Applications `root-app`, `postgres`,
 `redis` et `todo-api` doivent apparaître `Synced` / `Healthy`.
 
+L'API est aussi exposée en permanence via un Ingress Traefik (même principe que ArgoCD :
+certificat auto-signé scellé avec Sealed Secrets, pas de `kubectl port-forward`
+nécessaire) : **`https://todo-api.<IP>.nip.io/todos`** (accepter l'avertissement du
+navigateur pour le certificat auto-signé).
+
 ## Roadmap
 
 - **CI (GitHub Actions)** : lint (code, Dockerfiles, charts Helm), scan de sécurité des
