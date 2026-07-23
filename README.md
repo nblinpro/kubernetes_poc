@@ -5,6 +5,21 @@ PoC d'infrastructure Kubernetes locale, entièrement piloté en Infrastructure a
 progressifs (Argo Rollouts) et gestion des secrets sans jamais rien committer en clair
 (Sealed Secrets).
 
+## Pourquoi ce projet
+
+L'objectif n'est pas de faire tourner "un Kubernetes", mais de démontrer une chaîne
+complète et réaliste — code source → CI (lint/scan/build) → registre d'images → GitOps
+→ cluster → observabilité — avec la même rigueur qu'en production, à petite échelle.
+Chaque brique (IaC, GitOps, CI/CD, sécurité des secrets, observabilité, déploiement
+progressif) a son outil dédié plutôt qu'un bricolage unique, et rien n'est cliqué dans
+une UI : tout est reproductible depuis zéro, y compris sur une autre machine (voir
+[Redéployer sur une autre machine](#redéployer-sur-une-autre-machine)). Aucun secret
+n'est jamais committé en clair (Sealed Secrets, hash bcrypt, variables d'environnement
+éphémères), et les images sont scannées (Trivy) avant déploiement. Les phases ont été
+construites, vérifiées et corrigées une par une — les couacs réels rencontrés en cours
+de route (sudo/PAM, ordonnancement des services, multi-tenancy Loki, visibilité GHCR...)
+sont documentés au fil du README plutôt que masqués.
+
 ## Statut
 
 Les 4 phases sont livrées et vérifiées de bout en bout : cluster + GitOps, app de démo
@@ -15,7 +30,7 @@ complète, observabilité, CI/CD + déploiement progressif. URLs en ligne (rempl
 |---|---|---|
 | App To-Do (frontend) | `https://todo.<IP>.nip.io` | — |
 | API To-Do (Swagger) | `https://todo-api.<IP>.nip.io/docs` | — |
-| ArgoCD | `https://argocd.<IP>.nip.io` | `admin` / `innosys` |
+| ArgoCD | `https://argocd.<IP>.nip.io` | `admin` / `mdp session` |
 | Grafana | `https://grafana.<IP>.nip.io` | `admin` / généré (voir Phase 3) |
 
 ## Architecture
