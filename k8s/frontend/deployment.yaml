@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ghcr.io/nblinpro/kubernetes_poc/frontend:d3b8fbf37543d8717876a2309e0e80c432a9dd75
+          image: ghcr.io/nblinpro/kubernetes_poc/frontend:b66e67d2ca9df64de6b1bf22e1699068ae9507d1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
