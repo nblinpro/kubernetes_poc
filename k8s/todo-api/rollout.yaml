@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: todo-api
-          image: ghcr.io/nblinpro/kubernetes_poc/todo-api:latest
+          image: ghcr.io/nblinpro/kubernetes_poc/todo-api:282b98ef6bb2fbe7f4f43fdd0e7e47fc24ca30b2
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
