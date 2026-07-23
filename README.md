@@ -264,6 +264,34 @@ automatiquement (provisionné via ConfigMap, pas cliqué dans l'UI) ; l'onglet
 **Explore → Loki** doit remonter les logs des pods `todo-api`/`frontend`/etc., confirmant
 que le pipeline Alloy → Loki fonctionne.
 
+## Redéployer sur une autre machine
+
+L'IP LAN (`192.168.80.169` dans les exemples de ce README) est codée en dur dans
+quelques fichiers (hostnames nip.io des Ingress, URL de l'API dans le frontend). Les
+Sealed Secrets, eux, sont chiffrés pour la clé publique du contrôleur sealed-secrets
+**de ce cluster précis** — ils ne se déchiffreront pas sur un nouveau cluster. Après
+avoir suivi les Phases 1 à 3 sur la nouvelle machine (jusqu'à avoir un cluster + ArgoCD
++ Sealed Secrets fonctionnels) :
+
+```bash
+# 1. Remplacer l'ancienne IP par la nouvelle dans tout le dépôt (un seul point d'entrée)
+./scripts/set-host-ip.sh 192.168.80.169 <nouvelle IP LAN>
+
+# 2. Régénérer tous les Sealed Secrets contre le contrôleur du nouveau cluster
+export KUBECONFIG=terraform/kubeconfig
+./scripts/reseal-secrets.sh <nouvelle IP LAN>
+# note les 2 mots de passe affichés (Redis, Grafana) — plus jamais réaffichés ensuite
+
+# 3. Rebuild + réimporter les images dans le nouveau k3d (voir Phase 2, étape 2)
+# 4. Committer et pousser
+git add apps k8s README.md
+git commit -m "Redéploiement : nouvelle IP LAN + secrets regénérés"
+git push
+```
+
+ArgoCD (déjà pointé sur ce même dépôt git via `terraform/gitops.tf`) resynchronise
+automatiquement une fois poussé.
+
 ## Roadmap
 
 - **CI (GitHub Actions)** : lint (code, Dockerfiles, charts Helm), scan de sécurité des
@@ -282,5 +310,6 @@ que le pipeline Alloy → Loki fonctionne.
 ├── k8s/
 │   ├── apps/           # Applications ArgoCD (postgres, redis, todo-api, frontend, kube-prometheus-stack, loki, alloy, monitoring-config)
 │   └── monitoring/     # Secret Grafana scellé + dashboard "as code"
-└── scripts/            # Scripts d'aide (vérification en lecture seule)
+└── scripts/            # Scripts d'aide : vérification (lecture seule), portabilité
+                        # (set-host-ip.sh, reseal-secrets.sh)
 ```
