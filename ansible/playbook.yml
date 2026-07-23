@@ -1,5 +1,5 @@
 ---
-- name: Bootstrap host for the Kubernetes PoC (Docker, kubectl, helm, k3d, terraform, kubeseal)
+- name: Bootstrap host for the Kubernetes PoC (Docker, kubectl, helm, k3d, terraform, kubeseal, kubectl-argo-rollouts)
   hosts: local
   become: false
   roles:
@@ -9,3 +9,4 @@
     - k3d
     - terraform
     - kubeseal
+    - kubectl-argo-rollouts

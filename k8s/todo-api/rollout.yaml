@@ -1,13 +1,24 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: todo-api
   namespace: todo
 spec:
-  replicas: 1
+  # 4 replicas : avec 1 seule replica, une pondération canary (25%/50%) n'a pas de sens
+  # (systématiquement arrondie à 0 ou 1 pod) — 4 permet des paliers réels 1/4, 2/4, 4/4.
+  replicas: 4
   selector:
     matchLabels:
       app: todo-api
+  strategy:
+    canary:
+      steps:
+        - setWeight: 25
+        - pause: {} # indéfinie : promotion manuelle via `kubectl argo rollouts promote todo-api`
+        - setWeight: 50
+        - pause:
+            duration: 30s
+        - setWeight: 100
   template:
     metadata:
       labels:
@@ -15,8 +26,8 @@ spec:
     spec:
       containers:
         - name: todo-api
-          image: todo-api:dev
-          imagePullPolicy: Never # image importée localement via `k3d image import`, pas de registre
+          image: ghcr.io/nblinpro/kubernetes_poc/todo-api:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
           env:

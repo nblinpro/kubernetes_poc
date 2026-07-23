@@ -1,17 +1,21 @@
 # kubernetes_poc
 
 PoC d'infrastructure Kubernetes locale, entièrement piloté en Infrastructure as Code
-(Ansible + Terraform), avec GitOps (ArgoCD) et gestion des secrets sans jamais rien
-committer en clair (Sealed Secrets).
+(Ansible + Terraform), avec GitOps (ArgoCD), CI/CD (GitHub Actions + GHCR), déploiements
+progressifs (Argo Rollouts) et gestion des secrets sans jamais rien committer en clair
+(Sealed Secrets).
 
 ## Architecture
 
 ```mermaid
 flowchart TB
+    GH["GitHub Actions\nlint + Trivy + build/push GHCR + bump manifests"] -->|image ghcr.io| Reg[(GHCR)]
+    GH -->|commit bump [skip ci]| Git[(github.com/nblinpro/kubernetes_poc)]
+
     subgraph Host["Machine hôte (Ubuntu)"]
         subgraph Ansible["Ansible (bootstrap, one-shot)"]
             A1[Docker Engine]
-            A2[kubectl / helm / k3d / terraform / kubeseal]
+            A2[kubectl / helm / k3d / terraform / kubeseal / kubectl-argo-rollouts]
         end
 
         subgraph TF["Terraform"]
@@ -27,11 +31,12 @@ flowchart TB
             direction LR
             P[Cluster CNPG: todo-db]
             R[Deployment: redis]
-            AP[Deployment: todo-api]
+            AP[Rollout: todo-api - canary]
             FE[Deployment: frontend]
             PR[kube-prometheus-stack]
             LK[Loki]
             AL[Alloy]
+            RO[Argo Rollouts controller]
         end
 
         subgraph K3D["Cluster k3d (Traefik intégré via k3s)"]
@@ -48,6 +53,9 @@ flowchart TB
     AP -->|SealedSecret redis-secret| R
     AL -->|logs des pods, API k8s| LK
     PR -->|datasource Loki| LK
+    RO -.->|pilote le rollout| AP
+    Git -->|sync auto| GitOps
+    AP -.->|image| Reg
 
     Ansible --> TF
     T1 --> K3D
@@ -292,23 +300,77 @@ git push
 ArgoCD (déjà pointé sur ce même dépôt git via `terraform/gitops.tf`) resynchronise
 automatiquement une fois poussé.
 
+## Démarrage — Phase 4 : CI/CD (GitHub Actions) + Argo Rollouts
+
+Un workflow GitHub Actions (`.github/workflows/ci-cd.yml`) remplace désormais le
+`docker build` + `k3d image import` manuel : à chaque push sur `main` (hors
+changements purs de `k8s/`), il lint le code/Dockerfiles/manifests, build et scanne
+(Trivy, non bloquant) les images `todo-api`/`frontend`, les pousse sur GHCR, puis met à
+jour automatiquement le tag dans `k8s/todo-api/rollout.yaml` et
+`k8s/frontend/deployment.yaml` (commit `[skip ci]`). ArgoCD synchronise ensuite tout
+seul. `todo-api` est converti en `Rollout` (Argo Rollouts) avec une stratégie canary :
+chaque nouvelle image est déployée progressivement (25% → pause → 50% → pause 30s →
+100%).
+
+### 1. Committer et pousser
+
+```bash
+cd ~/kubernetes_poc
+git add .github ansible k8s README.md
+git commit -m "Phase 4: CI/CD GitHub Actions + Argo Rollouts (canary) pour todo-api"
+git push
+```
+
+### 2. ⚠️ Étape manuelle unique : rendre les packages GHCR publics
+
+Après le tout premier run du workflow, les packages `todo-api` et `frontend` sont créés
+**privés** par défaut sur GHCR — impossible à automatiser (pas d'API pour ça). Sans
+cette étape, les pods resteront en `ImagePullBackOff`. Pour chaque package :
+`github.com/nblinpro/kubernetes_poc` → onglet **Packages** → cliquer sur le package →
+**Package settings** → **Change visibility** → **Public**.
+
+### 3. Installer le plugin CLI et vérifier
+
+```bash
+cd ansible && ansible-playbook playbook.yml --ask-become-pass   # installe kubectl-argo-rollouts
+export KUBECONFIG=~/kubernetes_poc/terraform/kubeconfig
+kubectl -n argo-rollouts get pods
+kubectl -n todo get rollout todo-api
+```
+
+Suivre un déploiement en direct (après un nouveau push, ou `workflow_dispatch` manuel
+depuis l'onglet Actions de GitHub) :
+
+```bash
+kubectl argo rollouts get rollout todo-api --watch
+```
+
+La pause après le palier à 25% est indéfinie — pour continuer manuellement :
+
+```bash
+kubectl argo rollouts promote todo-api
+```
+
 ## Roadmap
 
-- **CI (GitHub Actions)** : lint (code, Dockerfiles, charts Helm), scan de sécurité des
-  images avec Trivy, build/push vers GHCR, bump automatique des manifests (remplacera le
-  build/import local de la Phase 2).
-- **Déploiements avancés** : Canary / Blue-Green avec Argo Rollouts.
+- **Blue-Green** : alternative à la stratégie canary actuelle sur `todo-api` (simple
+  substitution du bloc `strategy` dans `k8s/todo-api/rollout.yaml`), non implémentée
+  pour rester focalisé sur un seul pattern de déploiement progressif.
 
 ## Structure du dépôt
 
 ```
-├── ansible/            # Bootstrap de la machine hôte (Docker, kubectl, helm, k3d, terraform, kubeseal)
+├── .github/workflows/  # CI/CD : lint, scan Trivy, build/push GHCR, bump manifests
+├── ansible/            # Bootstrap de la machine hôte (Docker, kubectl, helm, k3d, terraform,
+│                       # kubeseal, kubectl-argo-rollouts)
 ├── terraform/          # Provisioning : cluster k3d, Sealed Secrets, ArgoCD, CloudNativePG, bootstrap App-of-Apps
 ├── apps/
 │   ├── todo-api/       # Code source de l'API FastAPI (To-Do list)
 │   └── frontend/       # Frontend statique (HTML/CSS/JS, servi par nginx)
 ├── k8s/
-│   ├── apps/           # Applications ArgoCD (postgres, redis, todo-api, frontend, kube-prometheus-stack, loki, alloy, monitoring-config)
+│   ├── apps/           # Applications ArgoCD (postgres, redis, todo-api, frontend,
+│   │                   # kube-prometheus-stack, loki, alloy, argo-rollouts, monitoring-config)
+│   ├── todo-api/       # Rollout (canary) + Service + Ingress
 │   └── monitoring/     # Secret Grafana scellé + dashboard "as code"
 └── scripts/            # Scripts d'aide : vérification (lecture seule), portabilité
                         # (set-host-ip.sh, reseal-secrets.sh)

@@ -1,0 +1,28 @@
+---
+# Binaire téléchargé directement depuis les releases GitHub (pas distribué via krew) :
+# plugin kubectl pour observer/piloter les Rollouts (get --watch, promote, ...).
+- name: Définir la version de kubectl-argo-rollouts
+  ansible.builtin.set_fact:
+    argo_rollouts_version: "v1.9.1"
+
+- name: Vérifier si kubectl-argo-rollouts est déjà installé à la bonne version
+  ansible.builtin.command: kubectl argo rollouts version --short
+  register: argo_rollouts_check
+  changed_when: false
+  failed_when: false
+
+- name: Télécharger le binaire kubectl-argo-rollouts
+  ansible.builtin.get_url:
+    url: "https://github.com/argoproj/argo-rollouts/releases/download/{{ argo_rollouts_version }}/kubectl-argo-rollouts-linux-amd64"
+    dest: /tmp/kubectl-argo-rollouts
+    mode: "0755"
+  when: argo_rollouts_check.rc != 0 or argo_rollouts_version not in argo_rollouts_check.stdout
+
+- name: Installer kubectl-argo-rollouts dans /usr/local/bin
+  ansible.builtin.copy:
+    src: /tmp/kubectl-argo-rollouts
+    dest: /usr/local/bin/kubectl-argo-rollouts
+    mode: "0755"
+    remote_src: true
+  become: true
+  when: argo_rollouts_check.rc != 0 or argo_rollouts_version not in argo_rollouts_check.stdout

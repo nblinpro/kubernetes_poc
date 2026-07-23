@@ -1,0 +1,107 @@
+name: ci-cd
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "k8s/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: hadolint todo-api
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: apps/todo-api/Dockerfile
+
+      - name: hadolint frontend
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: apps/frontend/Dockerfile
+
+      - name: yamllint k8s manifests
+        run: |
+          pip install --quiet yamllint
+          yamllint k8s/
+
+      - name: ruff (todo-api)
+        run: |
+          pip install --quiet ruff
+          ruff check apps/todo-api
+
+  build-and-scan:
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: todo-api
+            context: apps/todo-api
+          - name: frontend
+            context: apps/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:latest
+
+      # Scan en mode rapport (non bloquant) : les CVE des images de base (python-slim,
+      # nginx-alpine...) sont hors de notre contrôle direct, on ne veut pas une CI rouge
+      # en permanence pour des raisons non actionnables ici. Passer exit-code à '1' pour
+      # bloquer sur CRITICAL/HIGH si souhaité.
+      - name: Trivy scan ${{ matrix.name }}
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}
+          format: table
+          exit-code: "0"
+          severity: "CRITICAL,HIGH"
+
+  bump-manifests:
+    needs: build-and-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Bump image tags in k8s manifests
+        run: |
+          yq -i '.spec.template.spec.containers[0].image = "${{ env.IMAGE_PREFIX }}/todo-api:${{ github.sha }}"' \
+            k8s/todo-api/rollout.yaml
+          yq -i '.spec.template.spec.containers[0].image = "${{ env.IMAGE_PREFIX }}/frontend:${{ github.sha }}"' \
+            k8s/frontend/deployment.yaml
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/todo-api/rollout.yaml k8s/frontend/deployment.yaml
+          git diff --staged --quiet || git commit -m "chore: bump images to ${{ github.sha }} [skip ci]"
+          git push

@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: todo-frontend:dev
-          imagePullPolicy: Never # image importée localement via `k3d image import`
+          image: ghcr.io/nblinpro/kubernetes_poc/frontend:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           readinessProbe:
