@@ -9,8 +9,8 @@ progressifs (Argo Rollouts) et gestion des secrets sans jamais rien committer en
 
 ```mermaid
 flowchart TB
-    GH["GitHub Actions\nlint + Trivy + build/push GHCR + bump manifests"] -->|image ghcr.io| Reg[(GHCR)]
-    GH -->|commit bump [skip ci]| Git[(github.com/nblinpro/kubernetes_poc)]
+    GH["GitHub Actions: lint + Trivy + build/push GHCR + bump manifests"] -->|image| Reg[GHCR]
+    GH -->|commit bump, skip ci| Git[github.com/nblinpro/kubernetes_poc]
 
     subgraph Host["Machine hôte (Ubuntu)"]
         subgraph Ansible["Ansible (bootstrap, one-shot)"]

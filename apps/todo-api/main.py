@@ -1,13 +1,13 @@
 import json
 from contextlib import asynccontextmanager
 
+from cache import get_cached_todos, invalidate_todos_cache, set_cached_todos
+from cache import ping as redis_ping
+from db import SessionLocal, Todo, init_db
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import delete, select
-
-from cache import get_cached_todos, invalidate_todos_cache, ping as redis_ping, set_cached_todos
-from db import SessionLocal, Todo, init_db
 
 
 class TodoCreate(BaseModel):

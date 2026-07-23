@@ -18,3 +18,7 @@ ansible/*.retry
 
 # OS / editors
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
