@@ -5,6 +5,19 @@ PoC d'infrastructure Kubernetes locale, entièrement piloté en Infrastructure a
 progressifs (Argo Rollouts) et gestion des secrets sans jamais rien committer en clair
 (Sealed Secrets).
 
+## Statut
+
+Les 4 phases sont livrées et vérifiées de bout en bout : cluster + GitOps, app de démo
+complète, observabilité, CI/CD + déploiement progressif. URLs en ligne (remplacer
+`<IP>` par l'IP LAN configurée, voir [Redéployer sur une autre machine](#redéployer-sur-une-autre-machine)) :
+
+| Service | URL | Identifiants |
+|---|---|---|
+| App To-Do (frontend) | `https://todo.<IP>.nip.io` | — |
+| API To-Do (Swagger) | `https://todo-api.<IP>.nip.io/docs` | — |
+| ArgoCD | `https://argocd.<IP>.nip.io` | `admin` / `innosys` |
+| Grafana | `https://grafana.<IP>.nip.io` | `admin` / généré (voir Phase 3) |
+
 ## Architecture
 
 ```mermaid
@@ -66,9 +79,6 @@ flowchart TB
     T6 --> GitOps
     GitOps --> K3D
 ```
-
-Les phases suivantes (voir [Roadmap](#roadmap)) brancheront CI/CD et observabilité sur
-ce socle.
 
 ## Prérequis
 
@@ -351,7 +361,7 @@ La pause après le palier à 25% est indéfinie — pour continuer manuellement 
 kubectl argo rollouts promote todo-api
 ```
 
-## Roadmap
+## Pour aller plus loin
 
 - **Blue-Green** : alternative à la stratégie canary actuelle sur `todo-api` (simple
   substitution du bloc `strategy` dans `k8s/todo-api/rollout.yaml`), non implémentée
